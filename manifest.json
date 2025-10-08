@@ -3,8 +3,8 @@
   "name": "quill-claude-extension",
   "display_name": "Quill",
   "version": "0.1.0",
-  "description": "Search meetings, notes, and contacts",
-  "long_description": "Search meetings, notes, and contacts",
+  "description": "Private, on-device access to your Quill meetings, minutes, transcripts, notes, contacts, and threads.",
+  "long_description": "Connect Claude to your local Quill Meetings app to search and retrieve meetings, minutes, transcripts, notes, contacts, and threads. Use it to quickly surface decisions and action items, draft follow-ups, and pull context into docs and CRMs. Runs entirely on your device and communicates with Quill via a local protocol—no cloud upload. Requires Quill for macOS or Windows and Claude Desktop ≥ 0.10.0.",
   "author": {
     "name": "quillmeetings",
     "email": "support@quillmeetings.com",
