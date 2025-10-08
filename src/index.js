@@ -15,7 +15,7 @@ const server = new Server(
     capabilities: {
       tools: {},
     },
-  },
+  }
 )
 
 const TIMEOUT_MS = 10000
