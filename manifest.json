@@ -1,0 +1,43 @@
+{
+  "manifest_version": "0.2",
+  "name": "quill-claude-extension",
+  "display_name": "Quill",
+  "version": "0.1.0",
+  "description": "Search meetings, notes, and contacts",
+  "long_description": "Search meetings, notes, and contacts",
+  "author": {
+    "name": "quillmeetings",
+    "email": "support@quillmeetings.com",
+    "url": "https://www.quillmeetings.com"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "src/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/src/index.js"],
+      "env": {}
+    }
+  },
+  "tools": [
+    { "name": "list_meetings", "description": "Return a list of meetings" },
+    { "name": "get_meeting", "description": "Get a single meeting by id" },
+    { "name": "search_meetings", "description": "Search meetings by text query" },
+    { "name": "get_minutes", "description": "Return minutes or formatted transcript for a meeting" },
+    { "name": "get_transcript", "description": "Return formatted transcript for a meeting (very long; use judiciously, prefer minutes first)" },
+    { "name": "list_notes", "description": "List notes for a meeting" },
+    { "name": "get_note", "description": "Get a single note by id" },
+    { "name": "list_contacts", "description": "List contacts with optional search" },
+    { "name": "get_contact", "description": "Get a single contact by id" },
+    { "name": "search_contacts", "description": "Search contacts by name/email" },
+    { "name": "list_threads", "description": "List threads, optionally including meetings" }
+  ],
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": ["darwin", "win32"],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  },
+  "privacy_policies": []
+}

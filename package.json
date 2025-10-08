@@ -1,0 +1,13 @@
+{
+  "name": "quill-claude-extension",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "npm run pack",
+    "pack": "npx @anthropic-ai/mcpb pack"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.2",
+    "ws": "^8.18.0"
+  }
+}
