@@ -58,11 +58,12 @@ function ensureSocket() {
       clearTimeout(entry.timer)
       if (error) entry.reject(new Error(String(error)))
       else entry.resolve(result)
-    } catch (e) {
-      // ignore
+    } catch (error) {
+      console.error('mcp_ws_event', 'parse_error', error)
     }
   })
-  ws.on('close', () => {
+  ws.on('close', (code, reason) => {
+    console.error('mcp_ws_event', 'close', { code, reason })
     // reject all pending
     for (const [id, entry] of pending) {
       clearTimeout(entry.timer)
@@ -70,9 +71,8 @@ function ensureSocket() {
     }
     pending.clear()
   })
-  ws.on('error', (e) => {
-    // surface but keep stdio server alive
-    console.error('mcp_socket_error', e)
+  ws.on('error', (error) => {
+    console.error('mcp_socket_error', error)
   })
   return ws
 }
