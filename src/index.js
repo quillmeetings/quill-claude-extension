@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+// @ts-check
+
 import os from 'os'
 import WebSocket from 'ws'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
@@ -23,14 +25,24 @@ const isWindows = os.platform() === 'win32'
 const SOCKET_PATH = isWindows ? '\\\\.\\pipe\\quill_mcp' : '/tmp/quill_mcp.sock'
 const CLIENT_URL = isWindows ? 'ws+pipe://./pipe/quill_mcp' : `ws+unix://${SOCKET_PATH}`
 
+/** @type {WebSocket | undefined} */
 let ws
 let nextId = 1
 /** @type {Map<string, {resolve:Function, reject:Function, timer:NodeJS.Timeout}>} */
 const pending = new Map()
 
 function ensureSocket() {
-  if (ws && ws.readyState === WebSocket.OPEN) return ws
-  if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.CLOSING)) return ws
+  if (ws) {
+    if (ws.readyState === WebSocket.OPEN) return ws
+    if (ws.readyState === WebSocket.CONNECTING) return ws
+    if (ws.readyState === WebSocket.CLOSING || ws.readyState === WebSocket.CLOSED) {
+      try {
+        // Ensure we don't hold onto a socket that is closing/closed
+        ws.terminate?.()
+      } catch (_) {}
+      ws = undefined
+    }
+  }
   ws = new WebSocket(CLIENT_URL)
   ws.on('open', () => {
     // ready
@@ -65,12 +77,47 @@ function ensureSocket() {
   return ws
 }
 
+function waitForOpen(sock, timeoutMs = TIMEOUT_MS) {
+  return new Promise((resolve, reject) => {
+    if (sock.readyState === WebSocket.OPEN) return resolve(null)
+
+    const onOpen = () => {
+      cleanup()
+      resolve(null)
+    }
+    const onClose = () => {
+      cleanup()
+      reject(new Error('socket_closed'))
+    }
+    const onError = (e) => {
+      cleanup()
+      reject(e instanceof Error ? e : new Error('socket_error'))
+    }
+    const timer = setTimeout(() => {
+      cleanup()
+      reject(new Error('socket_open_timeout'))
+    }, timeoutMs)
+
+    function cleanup() {
+      clearTimeout(timer)
+      // ws uses Node EventEmitter, which supports off/removeListener
+      sock.off?.('open', onOpen)
+      sock.off?.('close', onClose)
+      sock.off?.('error', onError)
+    }
+
+    sock.once('open', onOpen)
+    sock.once('close', onClose)
+    sock.once('error', onError)
+  })
+}
+
 async function callBridge(method, params) {
   const sock = ensureSocket()
-  await new Promise((resolve) => {
-    if (sock.readyState === WebSocket.OPEN) return resolve()
-    sock.once('open', resolve)
-  })
+  await waitForOpen(sock)
+  if (sock.readyState !== WebSocket.OPEN) {
+    throw new Error('socket_not_open')
+  }
   const id = String(nextId++)
   const payload = JSON.stringify({ id, method, params })
   const p = new Promise((resolve, reject) => {
@@ -80,7 +127,16 @@ async function callBridge(method, params) {
     }, TIMEOUT_MS)
     pending.set(id, { resolve, reject, timer })
   })
-  sock.send(payload)
+  sock.send(payload, (err) => {
+    if (err) {
+      const entry = pending.get(id)
+      if (entry) {
+        clearTimeout(entry.timer)
+        pending.delete(id)
+        entry.reject(err)
+      }
+    }
+  })
   return p
 }
 
