@@ -170,14 +170,19 @@ server.setRequestHandler(ListToolsRequestSchema, async (_request) => {
       },
       {
         name: 'search_meetings',
-        description: 'Search meetings by text query',
+        description: 'Search meetings by text query and/or filter by contacts. Searches meeting title, blurb, participants, tags, full transcript, and note contents.',
         inputSchema: {
           type: 'object',
           properties: {
-            query: { type: 'string' },
+            query: { type: 'string', description: 'Text to search for in meeting content' },
             limit: { type: 'number', minimum: 1 },
             offset: { type: 'number', minimum: 0 },
-            thread_id: { type: 'string' },
+            thread_id: { type: 'string', description: 'Filter to specific thread' },
+            contact_ids: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Filter to meetings with these contact IDs as participants',
+            },
           },
           required: ['query'],
         },
@@ -240,7 +245,7 @@ server.setRequestHandler(ListToolsRequestSchema, async (_request) => {
       },
       {
         name: 'search_contacts',
-        description: 'Search contacts by name/email',
+        description: 'Search contacts by name, email, or bio',
         inputSchema: {
           type: 'object',
           properties: { query: { type: 'string' }, limit: { type: 'number' }, offset: { type: 'number' } },
@@ -287,6 +292,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         limit: args.limit ?? 10,
         offset: args.offset ?? 0,
         thread_id: args.thread_id,
+        contact_ids: args.contact_ids,
       })
       return { content: [{ type: 'text', text: JSON.stringify(data.meetings ?? [], null, 2) }] }
     }
