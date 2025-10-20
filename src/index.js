@@ -170,7 +170,8 @@ server.setRequestHandler(ListToolsRequestSchema, async (_request) => {
       },
       {
         name: 'search_meetings',
-        description: 'Search meetings by text query and/or filter by contacts. Searches meeting title, blurb, participants, tags, full transcript, and note contents.',
+        description:
+          'Search meetings by text query and/or filter by contacts. Searches meeting title, blurb, participants, tags, full transcript, and note contents.',
         inputSchema: {
           type: 'object',
           properties: {
@@ -184,7 +185,7 @@ server.setRequestHandler(ListToolsRequestSchema, async (_request) => {
               description: 'Filter to meetings with these contact IDs as participants',
             },
           },
-          required: ['query'],
+          required: [],
         },
       },
       {
