@@ -177,17 +177,35 @@ server.setRequestHandler(ListToolsRequestSchema, async (_request) => {
             query: { type: 'string' },
             limit: { type: 'number', minimum: 1 },
             offset: { type: 'number', minimum: 0 },
-            thread_id: { type: 'string' },
+            before: { type: 'string', description: 'ISO date lower bound' },
+            after: { type: 'string', description: 'ISO date upper bound' },
+            participants: { type: 'array', items: { type: 'string' } },
+            tags: { type: 'array', items: { type: 'string' } },
+          },
+        },
+      },
+      {
+        name: 'search_minutes',
+        description: 'Search minutes by text query',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string' },
+            limit: { type: 'number', minimum: 1 },
+            offset: { type: 'number', minimum: 0 },
+            note_id: { type: 'string' },
+            meeting_id: { type: 'string' },
+            participants: { type: 'array', items: { type: 'string' } },
           },
           required: ['query'],
         },
       },
       {
         name: 'get_minutes',
-        description: 'Return minutes or formatted transcript for a meeting',
+        description: 'Return minutes for a meeting',
         inputSchema: {
           type: 'object',
-          properties: { id: { type: 'string' }, prefer_existing_minutes: { type: 'boolean' } },
+          properties: { id: { type: 'string' } },
           required: ['id'],
         },
       },
@@ -286,13 +304,28 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         query: args.query,
         limit: args.limit ?? 10,
         offset: args.offset ?? 0,
-        thread_id: args.thread_id,
+        before: args.before,
+        after: args.after,
+        participants: args.participants,
+        tags: args.tags,
       })
       return { content: [{ type: 'text', text: JSON.stringify(data.meetings ?? [], null, 2) }] }
     }
 
+    if (name === 'search_minutes') {
+      const data = await callBridge('search_minutes', {
+        query: args.query,
+        limit: args.limit ?? 10,
+        offset: args.offset ?? 0,
+        note_id: args.note_id,
+        meeting_id: args.meeting_id,
+        participants: args.participants,
+      })
+      return { content: [{ type: 'text', text: JSON.stringify(data.minutes ?? [], null, 2) }] }
+    }
+
     if (name === 'get_minutes') {
-      const data = await callBridge('get_minutes', { id: args.id, prefer_existing_minutes: args.prefer_existing_minutes })
+      const data = await callBridge('get_minutes', { id: args.id })
       return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] }
     }
 
