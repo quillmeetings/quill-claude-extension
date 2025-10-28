@@ -18,7 +18,7 @@ const server = new Server(
     capabilities: {
       tools: {},
     },
-  },
+  }
 )
 
 const TIMEOUT_MS = 10000
@@ -36,6 +36,14 @@ const pending = new Map()
 let auth = null
 
 function resetAuthPromise() {
+  // Reject and clean up any existing, unresolved auth promise to avoid leaks
+  try {
+    auth?.reject?.(new Error('authentication_reset'))
+  } catch (_) {}
+  if (auth) {
+    auth.resolve = null
+    auth.reject = null
+  }
   /** @type {((v?:void)=>void) | null} */
   let resolveAuth = null
   /** @type {((e:Error)=>void) | null} */
