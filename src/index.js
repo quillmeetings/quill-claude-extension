@@ -35,6 +35,9 @@ const pending = new Map()
 /** @type {{ resolve: (() => void) | null, reject: ((e: Error) => void) | null, promise: Promise<void> } | null} */
 let auth = null
 
+/** @type {number | null} */
+let cachedSchemaVersion = null
+
 function resetAuthPromise() {
   // Reject and clean up any existing, unresolved auth promise to avoid leaks
   try {
@@ -205,11 +208,12 @@ async function callBridge(method, params) {
 
 // Handle tool listing
 server.setRequestHandler(ListToolsRequestSchema, async (_request) => {
-  // Fetch tools from backend if not cached
+  // Fetch tools from backend
   try {
     const { version, tools } = await callBridge('list_tools', {})
+    // Cache the schema version for version checking
+    cachedSchemaVersion = version
     return {
-      version,
       tools,
     }
   } catch (error) {
@@ -225,11 +229,41 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const args = request.params.arguments || {}
 
   try {
+    // Include client schema version in the request
+    const params = {
+      ...args,
+      _clientSchemaVersion: cachedSchemaVersion,
+    }
+
     // Simply forward the tool call to the backend
-    const data = await callBridge(name, args)
+    const data = await callBridge(name, params)
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
+
+    // Check if the error is a schema version mismatch
+    try {
+      const errorObj = JSON.parse(message)
+      if (errorObj.code === 'schema_outdated') {
+        console.error('Schema version mismatch detected, refetching tools...')
+        // Clear cached version to force refetch on next tool list request
+        cachedSchemaVersion = null
+        // Return a helpful error to the user
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Schema version mismatch. The tool schemas have been updated. Please retry your request.`,
+            },
+          ],
+          isError: true,
+        }
+      }
+    } catch (_) {
+      // Not a JSON error or not a schema_outdated error, continue with normal error handling
+    }
+
+    console.error('Error calling tool', name, args, error)
     return { content: [{ type: 'text', text: `Error: ${message}` }], isError: true }
   }
 })
