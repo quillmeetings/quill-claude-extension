@@ -12,7 +12,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 const server = new Server(
   {
     name: 'quill-claude-extension',
-    version: '0.1.1',
+    version: '0.1.2',
   },
   {
     capabilities: {
@@ -37,6 +37,27 @@ let auth = null
 
 /** @type {number | null} */
 let cachedSchemaVersion = null
+
+/**
+ * Fetches tools from backend and caches the version
+ */
+async function fetchTools() {
+  try {
+    const { version, tools } = await callBridge('list_tools', {})
+    server.registerCapabilities({ tools })
+    if (cachedSchemaVersion && cachedSchemaVersion !== version) {
+      server.sendToolListChanged().catch((error) => {
+        console.error('Failed to send tools list changed notification', error)
+      })
+    }
+    cachedSchemaVersion = version
+    console.log('Cached tools schema version', version)
+    return { version, tools }
+  } catch (error) {
+    console.error('Failed to fetch tools from backend', error)
+    throw error
+  }
+}
 
 function resetAuthPromise() {
   // Reject and clean up any existing, unresolved auth promise to avoid leaks
@@ -106,6 +127,20 @@ function ensureSocket() {
         }
         if (msg.type === 'auth_ok') {
           auth?.resolve?.()
+          // Proactively fetch tools and cache version after auth
+          fetchTools().catch((error) => {
+            console.error('Failed to fetch tools from backend', error)
+          })
+          return
+        }
+        if (msg.type === 'tools_changed') {
+          // Schema version has changed, clear cache and notify
+          console.error('Received tools_changed notification from backend')
+          cachedSchemaVersion = null
+          // Send notification to Claude Desktop
+          fetchTools().catch((error) => {
+            console.error('Failed to fetch tools from backend', error)
+          })
           return
         }
       }
@@ -210,12 +245,8 @@ async function callBridge(method, params) {
 server.setRequestHandler(ListToolsRequestSchema, async (_request) => {
   // Fetch tools from backend
   try {
-    const { version, tools } = await callBridge('list_tools', {})
-    // Cache the schema version for version checking
-    cachedSchemaVersion = version
-    return {
-      tools,
-    }
+    const { tools } = await fetchTools()
+    return { tools }
   } catch (error) {
     console.error('Failed to fetch tools from backend', error)
     // Return empty list if we can't fetch tools
