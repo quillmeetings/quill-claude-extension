@@ -44,14 +44,9 @@ let cachedSchemaVersion = null
 async function fetchTools() {
   try {
     const { version, tools } = await callBridge('list_tools', {})
-    server.registerCapabilities({ tools })
     if (cachedSchemaVersion && cachedSchemaVersion !== version) {
-      server.sendToolListChanged().catch((error) => {
-        console.error('Failed to send tools list changed notification', error)
-      })
+      cachedSchemaVersion = version
     }
-    cachedSchemaVersion = version
-    console.log('Cached tools schema version', version)
     return { version, tools }
   } catch (error) {
     console.error('Failed to fetch tools from backend', error)
@@ -97,7 +92,7 @@ function ensureSocket() {
   ws.on('open', () => {
     // ready
   })
-  ws.on('message', (raw) => {
+  ws.on('message', async (raw) => {
     try {
       const msg = JSON.parse(raw.toString())
       if (msg && typeof msg === 'object' && typeof msg.type === 'string') {
@@ -128,19 +123,11 @@ function ensureSocket() {
         if (msg.type === 'auth_ok') {
           auth?.resolve?.()
           // Proactively fetch tools and cache version after auth
-          fetchTools().catch((error) => {
-            console.error('Failed to fetch tools from backend', error)
-          })
-          return
-        }
-        if (msg.type === 'tools_changed') {
-          // Schema version has changed, clear cache and notify
-          console.error('Received tools_changed notification from backend')
-          cachedSchemaVersion = null
-          // Send notification to Claude Desktop
-          fetchTools().catch((error) => {
-            console.error('Failed to fetch tools from backend', error)
-          })
+          const { version } = await fetchTools()
+          if (cachedSchemaVersion && cachedSchemaVersion !== version) {
+            await server.sendToolListChanged()
+          }
+          console.log('tools_list_changed')
           return
         }
       }
@@ -268,6 +255,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     // Simply forward the tool call to the backend
     const data = await callBridge(name, params)
+    // TODO: catch version mismatch here to notify tools updated
+    // server.sendToolListChanged()
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
