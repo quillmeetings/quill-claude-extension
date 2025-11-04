@@ -255,9 +255,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     // Simply forward the tool call to the backend
     const data = await callBridge(name, params)
-    // TODO: catch version mismatch here to notify tools updated
-    // server.sendToolListChanged()
-    return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] }
+
+    // Check if response is in new standardized format
+    if (data && typeof data === 'object' && '_schemaVersion' in data && 'content' in data) {
+      // XML content
+      return { content: [{ type: 'text', text: data.content }] }
+    } else {
+      // Legacy format (JSON)
+      return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] }
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
 
