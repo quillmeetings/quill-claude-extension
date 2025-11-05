@@ -44,8 +44,13 @@ let cachedSchemaVersion = null
 async function fetchTools() {
   try {
     const { version, tools } = await callBridge('list_tools', {})
-    if (cachedSchemaVersion && cachedSchemaVersion !== version) {
+    if (cachedSchemaVersion === null) {
+      // First time initialization
       cachedSchemaVersion = version
+    } else if (cachedSchemaVersion !== version) {
+      // Schema changed
+      cachedSchemaVersion = version
+      // Notify will happen in the caller
     }
     return { version, tools }
   } catch (error) {
