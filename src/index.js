@@ -235,15 +235,9 @@ async function callBridge(method, params) {
 
 // Handle tool listing
 server.setRequestHandler(ListToolsRequestSchema, async (_request) => {
-  // Fetch tools from backend
-  try {
-    const { tools } = await fetchTools()
-    return { tools }
-  } catch (error) {
-    console.error('Failed to fetch tools from backend', error)
-    // Return empty list if we can't fetch tools
-    return { tools: [] }
-  }
+  // Fetch tools from backend - let errors propagate to client
+  const { tools } = await fetchTools()
+  return { tools }
 })
 
 // Handle tool execution
