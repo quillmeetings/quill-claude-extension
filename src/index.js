@@ -279,6 +279,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         console.error('Schema version mismatch detected, refetching tools...')
         // Clear cached version to force refetch on next tool list request
         cachedSchemaVersion = null
+        await server.sendToolListChanged()
         // Return a helpful error to the user
         return {
           content: [
