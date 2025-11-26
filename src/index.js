@@ -128,8 +128,13 @@ function ensureSocket() {
         if (msg.type === 'auth_ok') {
           auth?.resolve?.()
           // Proactively fetch tools and cache version after auth
-          await fetchTools()
-          console.log('tools_list_changed')
+          const { version } = await fetchTools()
+          if (cachedSchemaVersion && cachedSchemaVersion !== version) {
+            console.error(
+              `Deprecated schema version found. Found ${cachedSchemaVersion}, expected ${version}. Sending tool_list_changed notification.`,
+            )
+            await server.sendToolListChanged()
+          }
           return
         }
       }
@@ -267,9 +272,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     try {
       const errorObj = JSON.parse(message)
       if (errorObj.code === 'schema_outdated') {
-        console.error('Schema version mismatch detected, refetching tools...')
+        console.error(
+          `Schema version mismatch detected. Found ${cachedSchemaVersion}, expected ${errorObj.clientVersion}. Sending tool_list_changed notification.`,
+        )
         // Clear cached version to force refetch on next tool list request
         cachedSchemaVersion = null
+        await server.sendToolListChanged()
         // Return a helpful error to the user
         return {
           content: [
