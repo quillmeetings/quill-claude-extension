@@ -15,19 +15,7 @@
     "entry_point": "src/index.js",
     "mcp_config": {
       "command": "node",
-      "args": ["${__dirname}/src/index.js"],
-      "env": {
-        "QUILL_MCP_SECRET": "${user_config.quill_mcp_secret}"
-      }
-    }
-  },
-  "user_config": {
-    "quill_mcp_secret": {
-      "type": "string",
-      "title": "Extension Secret",
-      "description": "Ensures your data is only shared with authorized applications. Find it in Quill → Settings → Claude Extension → Copy MCP Secret.",
-      "sensitive": true,
-      "required": true
+      "args": ["${__dirname}/src/index.js"]
     }
   },
   "tools": [

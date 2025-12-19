@@ -4,7 +4,6 @@
 
 import os from 'os'
 import WebSocket from 'ws'
-import crypto from 'crypto'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
@@ -32,9 +31,6 @@ let nextId = 1
 /** @type {Map<string, {resolve:Function, reject:Function, timer:NodeJS.Timeout}>} */
 const pending = new Map()
 
-/** @type {{ resolve: (() => void) | null, reject: ((e: Error) => void) | null, promise: Promise<void> } | null} */
-let auth = null
-
 /** @type {number | null} */
 let cachedSchemaVersion = null
 
@@ -59,26 +55,6 @@ async function fetchTools() {
   }
 }
 
-function resetAuthPromise() {
-  // Reject and clean up any existing, unresolved auth promise to avoid leaks
-  try {
-    auth?.reject?.(new Error('authentication_reset'))
-  } catch (_) {}
-  if (auth) {
-    auth.resolve = null
-    auth.reject = null
-  }
-  /** @type {((v?:void)=>void) | null} */
-  let resolveAuth = null
-  /** @type {((e:Error)=>void) | null} */
-  let rejectAuth = null
-  const promise = new Promise((resolve, reject) => {
-    resolveAuth = resolve
-    rejectAuth = reject
-  })
-  auth = { resolve: resolveAuth, reject: rejectAuth, promise }
-}
-
 function ensureSocket() {
   if (ws) {
     if (ws.readyState === WebSocket.OPEN) return ws
@@ -92,50 +68,14 @@ function ensureSocket() {
     }
   }
   ws = new WebSocket(CLIENT_URL)
-  resetAuthPromise()
 
   ws.on('open', () => {
-    // ready
+    // Connection established - no auth required
+    console.error('Connected to Quill MCP server')
   })
   ws.on('message', async (raw) => {
     try {
       const msg = JSON.parse(raw.toString())
-      if (msg && typeof msg === 'object' && typeof msg.type === 'string') {
-        if (msg.type === 'nonce') {
-          // Proceed with handshake authentication
-          const secret = process.env.QUILL_MCP_SECRET
-          if (!secret) {
-            auth?.reject?.(new Error('Please set the Extension Secret in the Claude extensions settings.'))
-            try {
-              ws?.close()
-            } catch (_) {}
-            return
-          }
-          try {
-            const hmac = crypto
-              .createHmac('sha256', Buffer.from(secret, 'base64'))
-              .update(String(msg.nonce || ''))
-              .digest('base64')
-            ws?.send(JSON.stringify({ type: 'auth', hmac }))
-          } catch (e) {
-            auth?.reject?.(e instanceof Error ? e : new Error('Authentication failed. Please check the Extension Secret and try again.'))
-            try {
-              ws?.close()
-            } catch (_) {}
-          }
-          return
-        }
-        if (msg.type === 'auth_ok') {
-          auth?.resolve?.()
-          // Proactively fetch tools and cache version after auth
-          const { version } = await fetchTools()
-          if (cachedSchemaVersion && cachedSchemaVersion !== version) {
-            await server.sendToolListChanged()
-          }
-          console.log('tools_list_changed')
-          return
-        }
-      }
       const { id, result, error } = msg || {}
       if (!id) return
       const entry = pending.get(String(id))
@@ -150,7 +90,6 @@ function ensureSocket() {
   })
   ws.on('close', (code, reason) => {
     console.error('mcp_ws_event', 'close', { code, reason })
-    auth?.reject?.(new Error('Failed to connect. Make sure Quill is running.'))
     // reject all pending
     for (const [id, entry] of pending) {
       clearTimeout(entry.timer)
@@ -202,12 +141,6 @@ function waitForOpen(sock, timeoutMs = TIMEOUT_MS) {
 async function callBridge(method, params) {
   const sock = ensureSocket()
   await waitForOpen(sock)
-  // ensure authenticated before any RPCs
-  try {
-    await auth?.promise
-  } catch (e) {
-    throw e instanceof Error ? e : new Error('Authentication failed.')
-  }
   if (sock.readyState !== WebSocket.OPEN) {
     throw new Error('socket_not_open')
   }
