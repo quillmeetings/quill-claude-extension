@@ -12,7 +12,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 const server = new Server(
   {
     name: 'quill-claude-extension',
-    version: '0.1.2',
+    version: '0.1.3',
   },
   {
     capabilities: {
@@ -39,7 +39,7 @@ let auth = null
 let cachedSchemaVersion = null
 
 /**
- * Fetches tools from backend and caches the version
+ * Fetches tools from backend and caches the schema version
  */
 async function fetchTools() {
   try {
@@ -130,9 +130,11 @@ function ensureSocket() {
           // Proactively fetch tools and cache version after auth
           const { version } = await fetchTools()
           if (cachedSchemaVersion && cachedSchemaVersion !== version) {
+            console.error(
+              `Deprecated schema version found. Found ${cachedSchemaVersion}, expected ${version}. Sending tool_list_changed notification.`,
+            )
             await server.sendToolListChanged()
           }
-          console.log('tools_list_changed')
           return
         }
       }
@@ -270,7 +272,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     try {
       const errorObj = JSON.parse(message)
       if (errorObj.code === 'schema_outdated') {
-        console.error('Schema version mismatch detected, refetching tools...')
+        console.error(
+          `Schema version mismatch detected. Found ${cachedSchemaVersion}, expected ${errorObj.clientVersion}. Sending tool_list_changed notification.`,
+        )
         // Clear cached version to force refetch on next tool list request
         cachedSchemaVersion = null
         await server.sendToolListChanged()
