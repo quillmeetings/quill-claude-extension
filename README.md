@@ -29,14 +29,8 @@ This extension uses stdio transport.
   - All actual data access (meetings, minutes, transcripts, contacts, threads, etc.) happens inside Quill; this extension only forwards requests and responses.
   - Communication never leaves the device: both the stdio channel and the socket/pipe are local only.
 
-- **Authentication / “Extension Secret”**
-  - On connection, Quill sends a one‑time `nonce` over the socket.  
-  - The MCP extension reads `QUILL_MCP_SECRET` from the environment (wired from Claude Desktop via `user_config.quill_mcp_secret` in `manifest.json`).  
-  - It computes an HMAC‑SHA256 of the nonce using that secret and replies with an `auth` message.  
-  - If Quill responds with `auth_ok`, the bridge is trusted and the extension starts serving tools. If auth fails, the socket is closed and tool calls return a clear error.
-
 - **Dynamic tools & schema versioning**
-  - After successful auth, the extension calls a `list_tools` RPC over the socket to Quill.  
+  - On connection, the extension calls a `list_tools` RPC over the socket to Quill.  
   - Quill returns the current tool schemas and a `_schemaVersion`; the extension caches this version and reports the tools to Claude via the MCP `listTools` handler.  
   - Each subsequent tool call forwards the user arguments plus `_clientSchemaVersion` back to Quill.  
   - If Quill detects a schema mismatch and replies with a `schema_outdated` error, the extension clears its cached version and instructs the user (via Claude) to retry so it can re‑sync tool schemas.
@@ -49,11 +43,9 @@ This extension uses stdio transport.
     - MCP server ↔ Quill over a fixed Unix domain socket (`/tmp/quill_mcp.sock`) on macOS or named pipe (`\\\\.\\pipe\\quill_mcp`) on Windows.
   - The extension does not initiate any outbound network connections and does not talk to Quill cloud services.
 
-- **Authentication and access control**
-  - The Quill desktop app owns the socket/pipe and sends a one‑time `nonce` when a client connects.
-  - The MCP extension must prove knowledge of the shared secret (`QUILL_MCP_SECRET`) via an HMAC‑SHA256 over that nonce before Quill will accept any RPCs.
-  - The secret is supplied by Claude Desktop via `user_config.quill_mcp_secret` in `manifest.json`; the extension reads it from `process.env` and never persists it to disk or transmits it over the network.
-  - If the secret is missing or invalid, the extension closes the socket and surfaces an explicit error back to Claude.
+- **Access control**
+  - The Quill desktop app owns the socket/pipe and only accepts connections from processes on the local machine.
+  - No secrets or credentials are required; access is implicitly scoped to the current user session since only local processes can connect to the Unix domain socket or named pipe.
 
 - **Data handling**
   - Meeting, transcript, notes, contacts, and thread data all originate from the Quill desktop app and flow over the local socket only.
