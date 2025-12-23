@@ -11,7 +11,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 const server = new Server(
   {
     name: 'quill-claude-extension',
-    version: '0.1.3',
+    version: '0.1.4',
   },
   {
     capabilities: {
