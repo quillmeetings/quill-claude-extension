@@ -3,6 +3,7 @@
 // @ts-check
 
 import os from 'os'
+import net from 'net'
 import WebSocket from 'ws'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
@@ -23,7 +24,13 @@ const server = new Server(
 const TIMEOUT_MS = 10000
 const isWindows = os.platform() === 'win32'
 const SOCKET_PATH = isWindows ? '\\\\.\\pipe\\quill_mcp' : '/tmp/quill_mcp.sock'
-const CLIENT_URL = isWindows ? 'ws+pipe://./pipe/quill_mcp' : `ws+unix://${SOCKET_PATH}`
+
+// WebSocket connection URL configuration:
+// - Unix/macOS: The 'ws' library natively supports ws+unix:// URLs for Unix domain sockets
+// - Windows: The 'ws' library does NOT support ws+pipe:// URLs for named pipes.
+//   We use a placeholder URL here and provide the actual connection via createConnection option.
+//   See ensureSocket() for the Windows named pipe connection handling.
+const CLIENT_URL = isWindows ? 'ws://localhost' : `ws+unix://${SOCKET_PATH}`
 
 /** @type {WebSocket | undefined} */
 let ws
@@ -67,7 +74,17 @@ function ensureSocket() {
       ws = undefined
     }
   }
-  ws = new WebSocket(CLIENT_URL)
+  // Windows named pipe connection fix:
+  // The 'ws' library doesn't support ws+pipe:// URLs, so we manually create
+  // the socket connection using Node's net.connect() and pass it via the
+  // createConnection option. This allows WebSocket to work over Windows named pipes.
+  const wsOptions = isWindows
+    ? {
+        createConnection: () => net.connect(SOCKET_PATH),
+      }
+    : {}
+
+  ws = new WebSocket(CLIENT_URL, wsOptions)
 
   ws.on('open', () => {
     // Connection established - no auth required
