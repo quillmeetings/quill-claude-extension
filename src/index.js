@@ -175,6 +175,11 @@ function forceDisconnect() {
     } catch (_) {}
     ws = undefined
   }
+  for (const [id, entry] of pending) {
+    clearTimeout(entry.timer)
+    entry.reject(new Error('Failed to connect. Make sure Quill is running.'))
+  }
+  pending.clear()
 }
 
 async function callBridgeSingle(method, params) {
