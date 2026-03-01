@@ -155,7 +155,29 @@ function waitForOpen(sock, timeoutMs = TIMEOUT_MS) {
   })
 }
 
-async function callBridge(method, params) {
+const CONNECTION_ERRORS = [
+  'socket_closed',
+  'socket_not_open',
+  'socket_open_timeout',
+  'socket_error',
+  'Failed to connect',
+]
+
+function isConnectionError(err) {
+  const msg = err instanceof Error ? err.message : String(err)
+  return CONNECTION_ERRORS.some((e) => msg.includes(e))
+}
+
+function forceDisconnect() {
+  if (ws) {
+    try {
+      ws.terminate?.()
+    } catch (_) {}
+    ws = undefined
+  }
+}
+
+async function callBridgeSingle(method, params) {
   const sock = ensureSocket()
   await waitForOpen(sock)
   if (sock.readyState !== WebSocket.OPEN) {
@@ -183,17 +205,80 @@ async function callBridge(method, params) {
   return p
 }
 
+const MAX_RETRIES = 3
+const RETRY_DELAY_MS = 1500
+
+async function callBridge(method, params) {
+  let lastError
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      return await callBridgeSingle(method, params)
+    } catch (err) {
+      lastError = err
+      if (isConnectionError(err) && attempt < MAX_RETRIES - 1) {
+        console.error(`Connection attempt ${attempt + 1} failed, retrying in ${RETRY_DELAY_MS}ms...`)
+        forceDisconnect()
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS))
+      } else {
+        throw err
+      }
+    }
+  }
+  throw lastError
+}
+
 // Handle tool listing
 server.setRequestHandler(ListToolsRequestSchema, async (_request) => {
-  // Fetch tools from backend - let errors propagate to client
-  const { tools } = await fetchTools()
-  return { tools }
+  try {
+    const { tools } = await fetchTools()
+    return { tools }
+  } catch (error) {
+    if (isConnectionError(error)) {
+      console.error('Cannot reach Quill to list tools, returning reconnect placeholder')
+      return {
+        tools: [
+          {
+            name: 'quill_reconnect',
+            description:
+              'Quill is not currently reachable. Call this tool to attempt to reconnect.',
+            inputSchema: {
+              type: 'object',
+              properties: {},
+            },
+          },
+        ],
+      }
+    }
+    throw error
+  }
 })
 
 // Handle tool execution
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const name = request.params.name
   const args = request.params.arguments || {}
+
+  // Handle the reconnect placeholder tool
+  if (name === 'quill_reconnect') {
+    forceDisconnect()
+    try {
+      await fetchTools()
+      await server.sendToolListChanged()
+      return {
+        content: [{ type: 'text', text: 'Successfully reconnected to Quill. Tools have been refreshed — please retry your original request.' }],
+      }
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Still unable to connect to Quill. Please ensure that:\n1. Quill is running\n2. The MCP server is enabled in Quill Settings > Integrations\nThen try again.`,
+          },
+        ],
+        isError: true,
+      }
+    }
+  }
 
   try {
     // Include client schema version in the request
@@ -242,6 +327,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     console.error('Error calling tool', name, args, error)
+
+    if (isConnectionError(error)) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Could not connect to Quill after ${MAX_RETRIES} attempts. Please ensure that:\n1. Quill is running\n2. The MCP server is enabled in Quill Settings > Integrations\nThen retry your request.`,
+          },
+        ],
+        isError: true,
+      }
+    }
+
     return { content: [{ type: 'text', text: `Error: ${message}` }], isError: true }
   }
 })
