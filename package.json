@@ -10,8 +10,9 @@
     "manifest:prod": "node ./scripts/generate-manifest.mjs --mode prod",
     "build:ts": "tsc -p tsconfig.json",
     "build:mcpb": "mcpb pack",
-    "build:dev": "npm run clean && npm run socket:dev && npm run manifest:dev && npm run build:ts && npm run build:mcpb",
-    "build:prod": "npm run clean && npm run socket:prod && npm run manifest:prod && npm run build:ts && npm run build:mcpb",
+    "copy:mcpb": "cp ./extension.mcpb ../../app/assets/claude/quill.mcpb",
+    "build:dev": "npm run clean && npm run socket:dev && npm run manifest:dev && npm run build:ts && npm run build:mcpb && npm run copy:mcpb",
+    "build:prod": "npm run clean && npm run socket:prod && npm run manifest:prod && npm run build:ts && npm run build:mcpb && npm run copy:mcpb",
     "build": "npm run build:prod",
     "version:bump": "node ./scripts/bump-version.mjs"
   },

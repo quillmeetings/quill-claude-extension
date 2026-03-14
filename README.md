@@ -74,8 +74,9 @@ The extension now uses a TypeScript-first build pipeline:
 - `npm run manifest:prod` - generate manifest with prod display identity
 - `npm run build:ts` - compile TypeScript to `dist/`
 - `npm run build:mcpb` - package extension to `extension.mcpb`
-- `npm run build:dev` - clean + dev socket config + dev manifest + TS build + package
-- `npm run build:prod` - clean + prod socket config + prod manifest + TS build + package
+- `npm run copy:mcpb` - copy `extension.mcpb` to `app/assets/claude/quill.mcpb`
+- `npm run build:dev` - clean + dev socket config + dev manifest + TS build + package + copy to app assets
+- `npm run build:prod` - clean + prod socket config + prod manifest + TS build + package + copy to app assets
 - `npm run build` - alias to `build:prod`
 
 ### Build examples
