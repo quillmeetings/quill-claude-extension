@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "clean": "rm -rf dist",
+    "manifest:dev": "node ./scripts/generate-manifest.mjs --mode dev",
+    "manifest:prod": "node ./scripts/generate-manifest.mjs --mode prod",
     "build:ts": "tsc -p tsconfig.json",
     "build:mcpb": "mcpb pack",
     "version:bump": "node ./scripts/bump-version.mjs"
