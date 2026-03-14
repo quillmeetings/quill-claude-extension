@@ -7,8 +7,7 @@ import type { RawData } from 'ws'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
-
-export const EXTENSION_VERSION = '0.1.4'
+import { EXTENSION_VERSION } from './version.js'
 
 const server = new Server(
   {

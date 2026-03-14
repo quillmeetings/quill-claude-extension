@@ -57,21 +57,79 @@ This extension uses stdio transport.
   - Logs may include tool names and basic argument metadata (such as IDs or short queries) for debugging, but the implementation avoids logging full meeting transcripts or note bodies.
   - There are no analytics, tracking, or remote log upload mechanisms in this package.
 
-## Run locally (manual)
+## Tooling and build workflow
+
+The extension now uses a TypeScript-first build pipeline:
+
+1. Generate `manifest.json` from `manifest.template.json` (`dev` or `prod` mode)
+2. Compile `src/**/*.ts` to `dist/`
+3. Package with `mcpb pack`
+
+### Scripts
+
+- `npm run manifest:dev` - generate manifest with dev display identity
+- `npm run manifest:prod` - generate manifest with prod display identity
+- `npm run build:ts` - compile TypeScript to `dist/`
+- `npm run build:mcpb` - package extension to `extension.mcpb`
+- `npm run build:dev` - clean + dev manifest + TS build + package
+- `npm run build:prod` - clean + prod manifest + TS build + package
+- `npm run build` - alias to `build:prod`
+
+### Build examples
 
 ```bash
-npm run dev
+# Default production build
+npm run build
+
+# Development variant (manifest display identity differs)
+npm run build:dev
 ```
 
-This will start the MCP server over stdio. Typically, a host (like MCPB/Claude Desktop) will spawn it using the manifest.
+## Versioning
 
-## Build/Pack
+Versioning has a single source of truth constant in `src/version.ts`:
+
+```ts
+export const EXTENSION_VERSION = 'x.y.z'
+```
+
+`scripts/bump-version.mjs` updates both:
+
+- `package.json` -> `version`
+- `src/version.ts` -> `EXTENSION_VERSION`
+
+### `version:bump` command
+
+Run:
 
 ```bash
-npm run pack
+npm run version:bump -- <target>
 ```
 
-This will package the extension per MCPB tooling and create an `extension.mcpb` file at the root.
+Where `<target>` can be:
+
+- `patch` (default if omitted)
+- `minor`
+- `major`
+- an explicit version (`x.y.z`)
+
+Examples:
+
+```bash
+# 0.1.4 -> 0.1.5
+npm run version:bump
+
+# 0.1.4 -> 0.2.0
+npm run version:bump -- minor
+
+# 0.1.4 -> 1.0.0
+npm run version:bump -- major
+
+# force exact version
+npm run version:bump -- 0.3.7
+```
+
+The script validates semver and fails fast if an invalid value is supplied.
 
 ## Manifest
 
@@ -79,8 +137,7 @@ See `manifest.json`. Important fields:
 
 - manifest_version: 0.2
 - server.type: node
-- server.mcp_config.transport: stdio
-- server.entry_point: src/index.js
+- server.entry_point: dist/index.js
 
 ## Tools
 

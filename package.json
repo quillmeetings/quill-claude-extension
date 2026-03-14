@@ -6,6 +6,7 @@
     "clean": "rm -rf dist",
     "build:ts": "tsc -p tsconfig.json",
     "build:mcpb": "mcpb pack",
+    "version:bump": "node ./scripts/bump-version.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.18.2",
