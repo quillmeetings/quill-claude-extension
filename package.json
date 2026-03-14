@@ -4,10 +4,15 @@
   "type": "module",
   "scripts": {
     "clean": "rm -rf dist",
+    "socket:dev": "node ./scripts/generate-socket-config.mjs --mode dev",
+    "socket:prod": "node ./scripts/generate-socket-config.mjs --mode prod",
     "manifest:dev": "node ./scripts/generate-manifest.mjs --mode dev",
     "manifest:prod": "node ./scripts/generate-manifest.mjs --mode prod",
     "build:ts": "tsc -p tsconfig.json",
     "build:mcpb": "mcpb pack",
+    "build:dev": "npm run clean && npm run socket:dev && npm run manifest:dev && npm run build:ts && npm run build:mcpb",
+    "build:prod": "npm run clean && npm run socket:prod && npm run manifest:prod && npm run build:ts && npm run build:mcpb",
+    "build": "npm run build:prod",
     "version:bump": "node ./scripts/bump-version.mjs"
   },
   "dependencies": {

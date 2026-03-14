@@ -61,18 +61,21 @@ This extension uses stdio transport.
 
 The extension now uses a TypeScript-first build pipeline:
 
-1. Generate `manifest.json` from `manifest.template.json` (`dev` or `prod` mode)
-2. Compile `src/**/*.ts` to `dist/`
-3. Package with `mcpb pack`
+1. Generate `src/socketConfig.ts` (`dev` or `prod` mode)
+2. Generate `manifest.json` from `manifest.template.json` (`dev` or `prod` mode)
+3. Compile `src/**/*.ts` to `dist/`
+4. Package with `mcpb pack`
 
 ### Scripts
 
+- `npm run socket:dev` - generate socket config for dev mode (`quill_mcp_dev`)
+- `npm run socket:prod` - generate socket config for prod mode (`quill_mcp`)
 - `npm run manifest:dev` - generate manifest with dev display identity
 - `npm run manifest:prod` - generate manifest with prod display identity
 - `npm run build:ts` - compile TypeScript to `dist/`
 - `npm run build:mcpb` - package extension to `extension.mcpb`
-- `npm run build:dev` - clean + dev manifest + TS build + package
-- `npm run build:prod` - clean + prod manifest + TS build + package
+- `npm run build:dev` - clean + dev socket config + dev manifest + TS build + package
+- `npm run build:prod` - clean + prod socket config + prod manifest + TS build + package
 - `npm run build` - alias to `build:prod`
 
 ### Build examples
@@ -84,6 +87,20 @@ npm run build
 # Development variant (manifest display identity differs)
 npm run build:dev
 ```
+
+## Socket config generation
+
+`src/index.ts` imports socket paths from a generated module:
+
+- `src/socketConfig.ts`
+
+The generated `SOCKET_CONFIG` object includes:
+
+- `paths.windows` (named pipe path)
+- `paths.darwin` (Unix socket path)
+- `mode` (`dev` or `prod`)
+
+This keeps runtime code free of manual mode branching and lets the build mode control socket routing.
 
 ## Versioning
 

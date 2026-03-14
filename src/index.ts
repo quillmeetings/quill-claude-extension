@@ -7,6 +7,7 @@ import type { RawData } from 'ws'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
+import { SOCKET_CONFIG } from './socketConfig.js'
 import { EXTENSION_VERSION } from './version.js'
 
 const server = new Server(
@@ -23,7 +24,7 @@ const server = new Server(
 
 const TIMEOUT_MS = 10000
 const isWindows = os.platform() === 'win32'
-const SOCKET_PATH = isWindows ? '\\\\.\\pipe\\quill_mcp' : '/tmp/quill_mcp.sock'
+const SOCKET_PATH = isWindows ? SOCKET_CONFIG.paths.windows : SOCKET_CONFIG.paths.darwin
 
 // ws+unix works on Unix sockets; Windows named pipes are handled via createConnection.
 const CLIENT_URL = isWindows ? 'ws://localhost' : `ws+unix://${SOCKET_PATH}`
