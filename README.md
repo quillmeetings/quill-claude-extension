@@ -62,7 +62,7 @@ The extension now uses a TypeScript-first build pipeline:
 
 1. Generate `src/socketConfig.ts` (`dev` or `prod` mode)
 2. Generate `manifest.json` from `manifest.template.json` (`dev` or `prod` mode)
-3. Compile `src/**/*.ts` to `dist/`
+3. Typecheck TypeScript, then bundle a single Node ESM output to `dist/index.js` via esbuild
 4. Package with `mcpb pack`
 
 ### Scripts
@@ -71,7 +71,7 @@ The extension now uses a TypeScript-first build pipeline:
 - `npm run socket:prod` - generate socket config for prod mode (`quill_mcp`)
 - `npm run manifest:dev` - generate manifest with dev display identity
 - `npm run manifest:prod` - generate manifest with prod display identity
-- `npm run build:ts` - compile TypeScript to `dist/`
+- `npm run build:ts` - typecheck + bundle `src/index.ts` to `dist/index.js` via esbuild
 - `npm run build:mcpb` - package extension to `extension.mcpb`
 - `npm run copy:mcpb` - copy `extension.mcpb` to `app/assets/claude/quill.mcpb`
 - `npm run build:dev` - clean + dev socket config + dev manifest + TS build + package + copy to app assets

@@ -1,12 +1,10 @@
-#!/usr/bin/env node
-
 import os from 'os'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
-import { SOCKET_CONFIG } from './socketConfig.js'
-import { EXTENSION_VERSION } from './version.js'
-import { ConnectionManager } from './lib/connectionManager.js'
+import { SOCKET_CONFIG } from './socketConfig'
+import { EXTENSION_VERSION } from './version'
+import { ConnectionManager } from './lib/connectionManager'
 
 const server = new Server(
   {
