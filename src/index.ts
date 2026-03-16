@@ -5,6 +5,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 import { SOCKET_CONFIG } from './socketConfig'
 import { EXTENSION_VERSION } from './version'
 import { ConnectionManager } from './lib/connectionManager'
+import { ProtocolClient } from './lib/protocolClient'
 
 const server = new Server(
   {
@@ -29,11 +30,11 @@ const connectionManager = new ConnectionManager({
   requestTimeoutMs: TIMEOUT_MS,
   maxRetries: 2,
 })
+const protocolClient = new ProtocolClient(connectionManager)
 
 async function fetchTools() {
   try {
-    const response = (await connectionManager.request('list_tools', {})) as { tools: unknown[] }
-    return response
+    return await protocolClient.listTools()
   } catch (error) {
     console.error('Failed to fetch tools from backend', error)
     throw error
@@ -50,7 +51,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
   const args = (request.params.arguments ?? {}) as Record<string, unknown>
 
   try {
-    const data = await connectionManager.request(name, args)
+    const data = await protocolClient.callTool(name, args)
     if (data && typeof data === 'object' && 'content' in data) {
       return { content: [{ type: 'text', text: String((data as { content: unknown }).content) }] }
     }
