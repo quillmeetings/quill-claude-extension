@@ -29,11 +29,10 @@ This extension uses stdio transport.
   - All actual data access (meetings, minutes, transcripts, contacts, threads, etc.) happens inside Quill; this extension only forwards requests and responses.
   - Communication never leaves the device: both the stdio channel and the socket/pipe are local only.
 
-- **Dynamic tools & schema versioning**
-  - On connection, the extension calls a `list_tools` RPC over the socket to Quill.  
-  - Quill returns the current tool schemas and a `_schemaVersion`; the extension caches this version and reports the tools to Claude via the MCP `listTools` handler.  
-  - Each subsequent tool call forwards the user arguments plus `_clientSchemaVersion` back to Quill.  
-  - If Quill detects a schema mismatch and replies with a `schema_outdated` error, the extension clears its cached version and instructs the user (via Claude) to retry so it can re‑sync tool schemas.
+- **Dynamic tools**
+  - On connection, the extension calls a `list_tools` RPC over the socket to Quill.
+  - Quill returns the current tool schemas, and the extension reports them through the MCP `listTools` handler.
+  - Tool calls are forwarded directly with the user-provided arguments.
 
 ## Security & privacy
 

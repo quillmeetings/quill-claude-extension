@@ -38,18 +38,11 @@ type PendingEntry = {
 let ws: WebSocket | undefined
 let nextId = 1
 const pending = new Map<string, PendingEntry>()
-let cachedSchemaVersion: number | null = null
 
 async function fetchTools() {
   try {
-    const response = (await callBridge('list_tools', {})) as { version: number; tools: unknown[] }
-    const { version, tools } = response
-    if (cachedSchemaVersion === null) {
-      cachedSchemaVersion = version
-    } else if (cachedSchemaVersion !== version) {
-      cachedSchemaVersion = version
-    }
-    return { version, tools }
+    const response = (await callBridge('list_tools', {})) as { tools: unknown[] }
+    return response
   } catch (error) {
     console.error('Failed to fetch tools from backend', error)
     throw error
@@ -191,39 +184,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
   const args = (request.params.arguments ?? {}) as Record<string, unknown>
 
   try {
-    const params = {
-      ...args,
-      _clientSchemaVersion: cachedSchemaVersion,
-    }
-    const data = await callBridge(name, params)
-    if (data && typeof data === 'object' && '_schemaVersion' in data && 'content' in data) {
+    const data = await callBridge(name, args)
+    if (data && typeof data === 'object' && 'content' in data) {
       return { content: [{ type: 'text', text: String((data as { content: unknown }).content) }] }
     }
     return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
-
-    try {
-      const errorObj = JSON.parse(message) as { code?: string; clientVersion?: string }
-      if (errorObj.code === 'schema_outdated') {
-        console.error(
-          `Schema version mismatch detected. Found ${cachedSchemaVersion}, expected ${errorObj.clientVersion}. Sending tool_list_changed notification.`,
-        )
-        cachedSchemaVersion = null
-        await server.sendToolListChanged()
-        return {
-          content: [
-            {
-              type: 'text',
-              text: 'Schema version mismatch. The tool schemas have been updated. Please retry your request.',
-            },
-          ],
-          isError: true,
-        }
-      }
-    } catch {
-      // Non-JSON errors are surfaced below.
-    }
 
     console.error('Error calling tool', name, args, error)
     return { content: [{ type: 'text', text: `Error: ${message}` }], isError: true }

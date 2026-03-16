@@ -37,25 +37,9 @@ let ws
 let nextId = 1
 /** @type {Map<string, {resolve:Function, reject:Function, timer:NodeJS.Timeout}>} */
 const pending = new Map()
-
-/** @type {number | null} */
-let cachedSchemaVersion = null
-
-/**
- * Fetches tools from backend and caches the schema version
- */
 async function fetchTools() {
   try {
-    const { version, tools } = await callBridge('list_tools', {})
-    if (cachedSchemaVersion === null) {
-      // First time initialization
-      cachedSchemaVersion = version
-    } else if (cachedSchemaVersion !== version) {
-      // Schema changed
-      cachedSchemaVersion = version
-      // Notify will happen in the caller
-    }
-    return { version, tools }
+    return await callBridge('list_tools', {})
   } catch (error) {
     console.error('Failed to fetch tools from backend', error)
     throw error
@@ -196,17 +180,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const args = request.params.arguments || {}
 
   try {
-    // Include client schema version in the request
-    const params = {
-      ...args,
-      _clientSchemaVersion: cachedSchemaVersion,
-    }
-
     // Simply forward the tool call to the backend
-    const data = await callBridge(name, params)
+    const data = await callBridge(name, args)
 
-    // Check if response is in new standardized format
-    if (data && typeof data === 'object' && '_schemaVersion' in data && 'content' in data) {
+    // Check if response is in standardized format
+    if (data && typeof data === 'object' && 'content' in data) {
       // XML content
       return { content: [{ type: 'text', text: data.content }] }
     } else {
@@ -215,31 +193,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
-
-    // Check if the error is a schema version mismatch
-    try {
-      const errorObj = JSON.parse(message)
-      if (errorObj.code === 'schema_outdated') {
-        console.error(
-          `Schema version mismatch detected. Found ${cachedSchemaVersion}, expected ${errorObj.clientVersion}. Sending tool_list_changed notification.`,
-        )
-        // Clear cached version to force refetch on next tool list request
-        cachedSchemaVersion = null
-        await server.sendToolListChanged()
-        // Return a helpful error to the user
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Schema version mismatch. The tool schemas have been updated. Please retry your request.`,
-            },
-          ],
-          isError: true,
-        }
-      }
-    } catch (_) {
-      // Not a JSON error or not a schema_outdated error, continue with normal error handling
-    }
 
     console.error('Error calling tool', name, args, error)
     return { content: [{ type: 'text', text: `Error: ${message}` }], isError: true }
