@@ -1,11 +1,11 @@
 import os from 'os'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { SOCKET_CONFIG } from './socketConfig'
 import { EXTENSION_VERSION } from './version'
 import { ConnectionManager } from './lib/connectionManager'
 import { ProtocolClient } from './lib/protocolClient'
+import { registerHandlers } from './lib/handlers'
 
 const server = new Server(
   {
@@ -32,37 +32,7 @@ const connectionManager = new ConnectionManager({
 })
 const protocolClient = new ProtocolClient(connectionManager)
 
-async function fetchTools() {
-  try {
-    return await protocolClient.listTools()
-  } catch (error) {
-    console.error('Failed to fetch tools from backend', error)
-    throw error
-  }
-}
-
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  const { tools } = await fetchTools()
-  return { tools }
-})
-
-server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
-  const name = request.params.name as string
-  const args = (request.params.arguments ?? {}) as Record<string, unknown>
-
-  try {
-    const data = await protocolClient.callTool(name, args)
-    if (data && typeof data === 'object' && 'content' in data) {
-      return { content: [{ type: 'text', text: String((data as { content: unknown }).content) }] }
-    }
-    return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
-
-    console.error('Error calling tool', name, args, error)
-    return { content: [{ type: 'text', text: `Error: ${message}` }], isError: true }
-  }
-})
+registerHandlers(server, { bridge: protocolClient })
 
 const transport = new StdioServerTransport()
 void server.connect(transport)
