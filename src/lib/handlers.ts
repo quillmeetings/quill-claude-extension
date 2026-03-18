@@ -37,6 +37,10 @@ export async function handleListTools(context: HandlerContext): Promise<{ tools:
       }),
     )
 
+    // Using console.log writes raw text to stdout (breaking the JSON-RPC stream).
+    // Claude Desktop intercepts unparseable stdout during initialization and toasts it.
+    console.log(`⚠️ ${message}`)
+
     throw new Error(message)
   }
 }
