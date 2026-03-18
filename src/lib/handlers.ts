@@ -2,6 +2,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import type { ProtocolClient } from './protocolClient'
 import { classifyError, formatErrorForUser } from './error'
+import { log } from './logger'
 
 export type ToolContent = { type: 'text'; text: string }
 
@@ -25,6 +26,12 @@ export async function handleListTools(context: HandlerContext): Promise<{ tools:
   } catch (error) {
     const classified = classifyError(error)
     const message = formatErrorForUser(classified)
+
+    log('error', 'list_tools_failure', {
+      kind: classified.kind,
+      code: classified.code,
+      message,
+    })
 
     // Host-visible breadcrumb for toast routing on list-tools failures.
     console.error(
@@ -60,6 +67,13 @@ export async function handleCallTool(context: HandlerContext, name: string, args
   } catch (error) {
     const classified = classifyError(error)
     const userMessage = formatErrorForUser(classified)
+
+    log('error', 'tool_call_failure', {
+      toolName: name,
+      kind: classified.kind,
+      code: classified.code,
+      message: userMessage,
+    })
 
     console.error(
       '[mcp-tool-error]',
