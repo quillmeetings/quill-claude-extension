@@ -60,22 +60,22 @@ This extension uses stdio transport.
 
 The extension now uses a TypeScript-first build pipeline:
 
-1. Generate `src/socketConfig.ts` (`dev` or `prod` mode)
+1. Generate `src/env.ts` (`development` or `production`)
 2. Generate `manifest.json` from `manifest.template.json` (`dev` or `prod` mode)
 3. Typecheck TypeScript, then bundle a single Node ESM output to `dist/index.js` via esbuild
 4. Package with `mcpb pack`
 
 ### Scripts
 
-- `npm run socket:dev` - generate socket config for dev mode (`quill_mcp_dev`)
-- `npm run socket:prod` - generate socket config for prod mode (`quill_mcp`)
+- `npm run env:dev` - generate `ENV='development'`
+- `npm run env:prod` - generate `ENV='production'`
 - `npm run manifest:dev` - generate manifest with dev display identity
 - `npm run manifest:prod` - generate manifest with prod display identity
 - `npm run build:ts` - typecheck + bundle `src/index.ts` to `dist/index.js` via esbuild
 - `npm run build:mcpb` - package extension to `extension.mcpb`
 - `npm run copy:mcpb` - copy `extension.mcpb` to `app/assets/claude/quill.mcpb`
-- `npm run build:dev` - clean + dev socket config + dev manifest + TS build + package + copy to app assets
-- `npm run build:prod` - clean + prod socket config + prod manifest + TS build + package + copy to app assets
+- `npm run build:dev` - clean + dev env + dev manifest + TS build + package + copy to app assets
+- `npm run build:prod` - clean + prod env + prod manifest + TS build + package + copy to app assets
 - `npm run build` - alias to `build:prod`
 
 ### Build examples
@@ -88,19 +88,17 @@ npm run build
 npm run build:dev
 ```
 
-## Socket config generation
+## Environment generation
 
-`src/index.ts` imports socket paths from a generated module:
+`src/index.ts` imports environment mode from a generated module:
 
-- `src/socketConfig.ts`
+- `src/env.ts`
 
-The generated `SOCKET_CONFIG` object includes:
+The generated default export includes:
 
-- `paths.windows` (named pipe path)
-- `paths.darwin` (Unix socket path)
-- `mode` (`dev` or `prod`)
+- `ENV` value (`development` or `production`)
 
-This keeps runtime code free of manual mode branching and lets the build mode control socket routing.
+Runtime code derives socket paths and log folder selection from `ENV`, which keeps behavior consistent between extension builds.
 
 ## Versioning
 
