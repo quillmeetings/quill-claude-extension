@@ -1,11 +1,11 @@
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import type { ProtocolClient } from './protocolClient'
-import { classifyError, formatUserMessage } from './error'
+import { classifyError, formatErrorForUser } from './error'
 
 export type ToolContent = { type: 'text'; text: string }
 
-export type ToolResponse = { content: ToolContent[]; isError?: boolean }
+export type ToolResult = { content: ToolContent[]; isError?: boolean }
 
 export type HandlerContext = {
   bridge: ProtocolClient
@@ -24,7 +24,7 @@ export async function handleListTools(context: HandlerContext): Promise<{ tools:
     return { tools }
   } catch (error) {
     const classified = classifyError(error)
-    const message = formatUserMessage(classified)
+    const message = formatErrorForUser(classified)
 
     // Host-visible breadcrumb for toast routing on list-tools failures.
     console.error(
@@ -41,7 +41,7 @@ export async function handleListTools(context: HandlerContext): Promise<{ tools:
   }
 }
 
-function toToolSuccessResponse(data: unknown): ToolResponse {
+function convertToToolResult(data: unknown): ToolResult {
   if (data && typeof data === 'object' && 'content' in data) {
     return { content: [{ type: 'text', text: String((data as { content: unknown }).content) }] }
   }
@@ -49,13 +49,13 @@ function toToolSuccessResponse(data: unknown): ToolResponse {
   return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] }
 }
 
-export async function handleCallTool(context: HandlerContext, name: string, args: Record<string, unknown>): Promise<ToolResponse> {
+export async function handleCallTool(context: HandlerContext, name: string, args: Record<string, unknown>): Promise<ToolResult> {
   try {
     const data = await context.bridge.callTool(name, args)
-    return toToolSuccessResponse(data)
+    return convertToToolResult(data)
   } catch (error) {
     const classified = classifyError(error)
-    const userMessage = formatUserMessage(classified)
+    const userMessage = formatErrorForUser(classified)
 
     console.error(
       '[mcp-tool-error]',

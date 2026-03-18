@@ -140,7 +140,7 @@ export function classifyError(input: unknown): AppError {
   }
 }
 
-export function formatUserMessage(error: AppError): string {
+export function formatErrorForUser(error: AppError): string {
   switch (error.kind) {
     case 'connection':
       return error.remediation ?? 'Unable to connect to Quill. Make sure Quill is running and try again.'
