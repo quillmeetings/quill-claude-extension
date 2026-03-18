@@ -6,6 +6,7 @@ import { EXTENSION_VERSION } from './version'
 import { ConnectionManager } from './lib/connectionManager'
 import { ProtocolClient } from './lib/protocolClient'
 import { registerHandlers } from './lib/handlers'
+import { log } from './lib/logger'
 
 const server = new Server(
   {
@@ -37,4 +38,8 @@ registerHandlers(server, { bridge: protocolClient })
 
 const transport = new StdioServerTransport()
 void server.connect(transport)
+log('info', 'extension_started', {
+  version: EXTENSION_VERSION,
+  platform: process.platform,
+})
 console.error('Quill MCP server running...')
