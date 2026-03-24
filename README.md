@@ -73,9 +73,8 @@ The extension now uses a TypeScript-first build pipeline:
 - `npm run manifest:prod` - generate manifest with prod display identity
 - `npm run build:ts` - typecheck + bundle `src/index.ts` to `dist/index.js` via esbuild
 - `npm run build:mcpb` - package extension to `extension.mcpb`
-- `npm run copy:mcpb` - copy `extension.mcpb` to `app/assets/claude/quill.mcpb`
-- `npm run build:dev` - clean + dev env + dev manifest + TS build + package + copy to app assets
-- `npm run build:prod` - clean + prod env + prod manifest + TS build + package + copy to app assets
+- `npm run build:dev` - clean + dev env + dev manifest + TS build + package
+- `npm run build:prod` - clean + prod env + prod manifest + TS build + package
 - `npm run build` - alias to `build:prod`
 
 ### Build examples
@@ -86,6 +85,109 @@ npm run build
 
 # Development variant (manifest display identity differs)
 npm run build:dev
+```
+
+## Local rebuild procedure (manual QA)
+
+Use this when testing the full Claude extension flow locally and you need to refresh:
+- extension package (`.mcpb`)
+- app extension version module
+- stdio bridge bundle
+
+### Recommended: use the helper script
+
+From repo root:
+
+```bash
+bash scripts/rebuild-claude-extension-local.sh --mode prod
+```
+
+Or from `mcp/extension`:
+
+```bash
+npm run rebuild:local -- --mode prod
+```
+
+Useful flags:
+
+- `--mode <prod|dev>` (default `prod`)
+- `--bump <patch|minor|major|x.y.z>` (optional pre-build version bump)
+- `--skip-install` (skip `npm ci` / `npm install`)
+- `--skip-bridge` (skip `npm run build:mcpBridge` in `app`)
+
+Examples:
+
+```bash
+# Dev build + patch bump
+bash scripts/rebuild-claude-extension-local.sh --mode dev --bump patch
+
+# Fast rerun without reinstalling dependencies
+bash scripts/rebuild-claude-extension-local.sh --mode prod --skip-install
+```
+
+### Manual steps (equivalent)
+
+### 1) Use correct Node version
+
+```bash
+cd /Users/achraf/code/quill/dev
+. ~/.nvm/nvm.sh
+cd app && nvm use
+cd ../mcp/extension && nvm use || true
+```
+
+### 2) Build extension package
+
+```bash
+cd /Users/achraf/code/quill/dev/mcp/extension
+npm ci
+```
+
+Optional (if you want a new version):
+
+```bash
+npm run version:bump -- patch
+# or: -- minor / -- major / -- 0.x.y
+```
+
+Build artifact:
+
+```bash
+npm run build:prod
+# for dev testing instead: npm run build:dev
+```
+
+### 3) Copy extension artifact to app assets
+
+```bash
+cp "/Users/achraf/code/quill/dev/mcp/extension/extension.mcpb" \
+   "/Users/achraf/code/quill/dev/app/assets/claude/quill.mcpb"
+```
+
+### 4) Regenerate app extension version module
+
+```bash
+cd /Users/achraf/code/quill/dev/app
+node scripts/generate-claude-extension-version.mjs
+```
+
+### 5) Rebuild MCP stdio bridge
+
+```bash
+cd /Users/achraf/code/quill/dev/app
+npm run build:mcpBridge
+```
+
+### One-shot command (prod)
+
+```bash
+cd /Users/achraf/code/quill/dev && . ~/.nvm/nvm.sh && \
+cd app && nvm use && cd ../mcp/extension && npm ci && \
+npm run build:prod && \
+cp extension.mcpb ../../app/assets/claude/quill.mcpb && \
+cd ../../app && \
+node scripts/generate-claude-extension-version.mjs && \
+npm run build:mcpBridge
 ```
 
 ## Environment generation
