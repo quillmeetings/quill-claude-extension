@@ -33,17 +33,6 @@ export async function handleListTools(context: HandlerContext): Promise<{ tools:
       message,
     })
 
-    // Host-visible breadcrumb for toast routing on list-tools failures.
-    console.error(
-      '[mcp-toast-signal]',
-      JSON.stringify({
-        event: 'list_tools_failure',
-        kind: classified.kind,
-        code: classified.code,
-        message,
-      }),
-    )
-
     // Using console.log writes raw text to stdout (breaking the JSON-RPC stream).
     // Claude Desktop intercepts unparseable stdout during initialization and toasts it.
     console.log(`⚠️ ${message}`)
@@ -66,27 +55,17 @@ export async function handleCallTool(context: HandlerContext, name: string, args
     return convertToToolResult(data)
   } catch (error) {
     const classified = classifyError(error)
-    const userMessage = formatErrorForUser(classified)
+    const message = formatErrorForUser(classified)
 
     log('error', 'tool_call_failure', {
       toolName: name,
       kind: classified.kind,
       code: classified.code,
-      message: userMessage,
+      message,
     })
 
-    console.error(
-      '[mcp-tool-error]',
-      JSON.stringify({
-        toolName: name,
-        kind: classified.kind,
-        code: classified.code,
-        message: userMessage,
-      }),
-    )
-
     return {
-      content: [{ type: 'text', text: userMessage }],
+      content: [{ type: 'text', text: message }],
       isError: true,
     }
   }
