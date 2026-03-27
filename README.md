@@ -29,11 +29,10 @@ This extension uses stdio transport.
   - All actual data access (meetings, minutes, transcripts, contacts, threads, etc.) happens inside Quill; this extension only forwards requests and responses.
   - Communication never leaves the device: both the stdio channel and the socket/pipe are local only.
 
-- **Dynamic tools & schema versioning**
-  - On connection, the extension calls a `list_tools` RPC over the socket to Quill.  
-  - Quill returns the current tool schemas and a `_schemaVersion`; the extension caches this version and reports the tools to Claude via the MCP `listTools` handler.  
-  - Each subsequent tool call forwards the user arguments plus `_clientSchemaVersion` back to Quill.  
-  - If Quill detects a schema mismatch and replies with a `schema_outdated` error, the extension clears its cached version and instructs the user (via Claude) to retry so it can re‑sync tool schemas.
+- **Dynamic tools**
+  - On connection, the extension calls a `list_tools` RPC over the socket to Quill.
+  - Quill returns the current tool schemas, and the extension reports them through the MCP `listTools` handler.
+  - Tool calls are forwarded directly with the user-provided arguments.
 
 ## Security & privacy
 
@@ -57,21 +56,197 @@ This extension uses stdio transport.
   - Logs may include tool names and basic argument metadata (such as IDs or short queries) for debugging, but the implementation avoids logging full meeting transcripts or note bodies.
   - There are no analytics, tracking, or remote log upload mechanisms in this package.
 
-## Run locally (manual)
+## Tooling and build workflow
+
+The extension now uses a TypeScript-first build pipeline:
+
+1. Generate `src/env.ts` (`development` or `production`)
+2. Generate `manifest.json` from `manifest.template.json` (`dev` or `prod` mode)
+3. Typecheck TypeScript, then bundle a single Node ESM output to `dist/index.js` via esbuild
+4. Package with `mcpb pack`
+
+### Scripts
+
+- `npm run env:dev` - generate `ENV='development'`
+- `npm run env:prod` - generate `ENV='production'`
+- `npm run manifest:dev` - generate manifest with dev display identity
+- `npm run manifest:prod` - generate manifest with prod display identity
+- `npm run build:ts` - typecheck + bundle `src/index.ts` to `dist/index.js` via esbuild
+- `npm run build:mcpb` - package extension to `extension.mcpb`
+- `npm run build:dev` - clean + dev env + dev manifest + TS build + package
+- `npm run build:prod` - clean + prod env + prod manifest + TS build + package
+- `npm run build` - alias to `build:prod`
+
+### Build examples
 
 ```bash
-npm run dev
+# Default production build
+npm run build
+
+# Development variant (manifest display identity differs)
+npm run build:dev
 ```
 
-This will start the MCP server over stdio. Typically, a host (like MCPB/Claude Desktop) will spawn it using the manifest.
+## Local rebuild procedure (manual QA)
 
-## Build/Pack
+Use this when testing the full Claude extension flow locally and you need to refresh:
+- extension package (`.mcpb`)
+- app extension version module
+- stdio bridge bundle
+
+### Recommended: use the helper script
+
+From repo root:
 
 ```bash
-npm run pack
+bash scripts/rebuild-claude-extension-local.sh --mode prod
 ```
 
-This will package the extension per MCPB tooling and create an `extension.mcpb` file at the root.
+Or from `mcp/extension`:
+
+```bash
+npm run rebuild:local -- --mode prod
+```
+
+Useful flags:
+
+- `--mode <prod|dev>` (default `prod`)
+- `--bump <patch|minor|major|x.y.z>` (optional pre-build version bump)
+- `--skip-install` (skip `npm ci` / `npm install`)
+- `--skip-bridge` (skip `npm run build:mcpBridge` in `app`)
+
+Examples:
+
+```bash
+# Dev build + patch bump
+bash scripts/rebuild-claude-extension-local.sh --mode dev --bump patch
+
+# Fast rerun without reinstalling dependencies
+bash scripts/rebuild-claude-extension-local.sh --mode prod --skip-install
+```
+
+### Manual steps (equivalent)
+
+### 1) Use correct Node version
+
+```bash
+cd /Users/achraf/code/quill/dev
+. ~/.nvm/nvm.sh
+cd app && nvm use
+cd ../mcp/extension && nvm use || true
+```
+
+### 2) Build extension package
+
+```bash
+cd /Users/achraf/code/quill/dev/mcp/extension
+npm ci
+```
+
+Optional (if you want a new version):
+
+```bash
+npm run version:bump -- patch
+# or: -- minor / -- major / -- 0.x.y
+```
+
+Build artifact:
+
+```bash
+npm run build:prod
+# for dev testing instead: npm run build:dev
+```
+
+### 3) Copy extension artifact to app assets
+
+```bash
+cp "/Users/achraf/code/quill/dev/mcp/extension/extension.mcpb" \
+   "/Users/achraf/code/quill/dev/app/assets/claude/quill.mcpb"
+```
+
+### 4) Regenerate app extension version module
+
+```bash
+cd /Users/achraf/code/quill/dev/app
+node scripts/generate-claude-extension-version.mjs
+```
+
+### 5) Rebuild MCP stdio bridge
+
+```bash
+cd /Users/achraf/code/quill/dev/app
+npm run build:mcpBridge
+```
+
+### One-shot command (prod)
+
+```bash
+cd /Users/achraf/code/quill/dev && . ~/.nvm/nvm.sh && \
+cd app && nvm use && cd ../mcp/extension && npm ci && \
+npm run build:prod && \
+cp extension.mcpb ../../app/assets/claude/quill.mcpb && \
+cd ../../app && \
+node scripts/generate-claude-extension-version.mjs && \
+npm run build:mcpBridge
+```
+
+## Environment generation
+
+`src/index.ts` imports environment mode from a generated module:
+
+- `src/env.ts`
+
+The generated default export includes:
+
+- `ENV` value (`development` or `production`)
+
+Runtime code derives socket paths and log folder selection from `ENV`, which keeps behavior consistent between extension builds.
+
+## Versioning
+
+Versioning has a single source of truth constant in `src/version.ts`:
+
+```ts
+export const EXTENSION_VERSION = 'x.y.z'
+```
+
+`scripts/bump-version.mjs` updates both:
+
+- `package.json` -> `version`
+- `src/version.ts` -> `EXTENSION_VERSION`
+
+### `version:bump` command
+
+Run:
+
+```bash
+npm run version:bump -- <target>
+```
+
+Where `<target>` can be:
+
+- `patch` (default if omitted)
+- `minor`
+- `major`
+- an explicit version (`x.y.z`)
+
+Examples:
+
+```bash
+# 0.1.4 -> 0.1.5
+npm run version:bump
+
+# 0.1.4 -> 0.2.0
+npm run version:bump -- minor
+
+# 0.1.4 -> 1.0.0
+npm run version:bump -- major
+
+# force exact version
+npm run version:bump -- 0.3.7
+```
+
+The script validates semver and fails fast if an invalid value is supplied.
 
 ## Manifest
 
@@ -79,8 +254,7 @@ See `manifest.json`. Important fields:
 
 - manifest_version: 0.2
 - server.type: node
-- server.mcp_config.transport: stdio
-- server.entry_point: src/index.js
+- server.entry_point: dist/index.js
 
 ## Tools
 

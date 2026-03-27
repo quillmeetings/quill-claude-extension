@@ -3,13 +3,28 @@
   "version": "0.1.4",
   "type": "module",
   "scripts": {
-    "build": "mcpb pack"
+    "clean": "rm -rf dist",
+    "env:dev": "node ./scripts/generate-env.mjs --mode dev",
+    "env:prod": "node ./scripts/generate-env.mjs --mode prod",
+    "manifest:dev": "node ./scripts/generate-manifest.mjs --mode dev",
+    "manifest:prod": "node ./scripts/generate-manifest.mjs --mode prod",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build:ts": "npm run typecheck && npm run clean && node ./esbuild.config.mjs",
+    "build:mcpb": "mcpb pack",
+    "build:dev": "npm run clean && npm run env:dev && npm run manifest:dev && npm run build:ts && npm run build:mcpb",
+    "build:prod": "npm run clean && npm run env:prod && npm run manifest:prod && npm run build:ts && npm run build:mcpb",
+    "build": "npm run build:prod",
+    "version:bump": "node ./scripts/bump-version.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.18.2",
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@anthropic-ai/mcpb": "^1.1.1"
+    "@anthropic-ai/mcpb": "^1.1.1",
+    "@types/node": "^24.5.2",
+    "@types/ws": "^8.18.1",
+    "esbuild": "^0.27.4",
+    "typescript": "^5.9.2"
   }
 }
