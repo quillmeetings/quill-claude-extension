@@ -21,18 +21,22 @@ function resolveLogPath(): string {
 }
 
 const EXTENSION_LOG_PATH = resolveLogPath()
+const EXTENSION_LOG_DIR = path.dirname(EXTENSION_LOG_PATH)
 
-export function getExtensionLogPath(): string {
-  return EXTENSION_LOG_PATH
+function initializeLogDirectory(): void {
+  if (!EXTENSION_LOG_DIR) throw new Error('Log directory unresolved')
+  fs.mkdirSync(EXTENSION_LOG_DIR, { recursive: true })
+}
+
+try {
+  initializeLogDirectory()
+} catch (error) {
+  console.error('[extension_logger_error]', String(error))
 }
 
 export function log(level: LogLevel, event: string, metadata: Record<string, unknown> = {}): void {
   try {
-    if (!EXTENSION_LOG_PATH) {
-      throw new Error('unsupported_platform')
-    }
-
-    fs.mkdirSync(path.dirname(EXTENSION_LOG_PATH), { recursive: true })
+    if (!EXTENSION_LOG_PATH) throw new Error('Log path unresolved')
     fs.appendFileSync(EXTENSION_LOG_PATH, `${level.toUpperCase()} ${new Date().toISOString()} [${event}] ${JSON.stringify(metadata)}\n`, 'utf8')
     console.error(level.toUpperCase(), new Date().toISOString(), event, JSON.stringify(metadata))
   } catch (error) {
