@@ -12,7 +12,7 @@
     "build:ts": "npm run typecheck && npm run clean && node ./esbuild.config.mjs",
     "build:mcpb": "mcpb pack",
     "build:dev": "npm run clean && npm run env:dev && npm run manifest:dev && npm run build:ts && npm run build:mcpb",
-    "build:prod": "npm run clean && npm run env:prod && npm run manifest:prod && npm run build:ts && npm run build:mcpb",
+    "build:prod": "npm run clean && npm run env:prod && npm run manifest:prod && npm run build:ts && npm prune --omit=dev && npm exec --yes --package @anthropic-ai/mcpb mcpb pack",
     "build": "npm run build:prod",
     "version:bump": "node ./scripts/bump-version.mjs"
   },

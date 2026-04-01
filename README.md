@@ -74,7 +74,7 @@ The extension now uses a TypeScript-first build pipeline:
 - `npm run build:ts` - typecheck + bundle `src/index.ts` to `dist/index.js` via esbuild
 - `npm run build:mcpb` - package extension to `extension.mcpb`
 - `npm run build:dev` - clean + dev env + dev manifest + TS build + package
-- `npm run build:prod` - clean + prod env + prod manifest + TS build + package
+- `npm run build:prod` - clean + prod env + prod manifest + TS build + prune dev dependencies + package (notarization-safe distribution)
 - `npm run build` - alias to `build:prod`
 
 ### Build examples
