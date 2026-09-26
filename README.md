@@ -86,29 +86,29 @@ See `manifest.json`. Important fields:
 
 Tool metadata is declared in `manifest.json` (names and human‑readable descriptions), while the **actual schemas** and implementations live in the Quill desktop app and are discovered dynamically at runtime via the `list_tools` bridge call.
 
-The current tool surface includes (non‑exhaustive):
+The current tool surface includes (non‑exhaustive; see `manifest.json` for the full list):
 
-- **`list_meetings`**: Return a list of meetings.
+- **`search_meetings`**: Search or list meetings by free‑text query and/or filter by participants, tags, or date. There is no separate list‑meetings tool — call it with no query to list.
 - **`get_meeting`**: Get a single meeting by id.
-- **`search_meetings`**: Search meetings by free‑text query and/or filter by contacts.
-- **`get_minutes`**: Return minutes or a formatted summary for a meeting.
-- **`get_transcript`**: Return the full formatted transcript for a meeting (can be long; prefer `get_minutes` first).
+- **`get_minutes`** / **`search_minutes`**: Read or full‑text‑search the AI‑generated minutes for a meeting.
+- **`get_transcript`**: Return the full transcript with speakers and timestamps for a meeting (can be long; prefer `get_minutes` first).
 - **`list_notes`** / **`get_note`**: Work with structured notes attached to a meeting.
 - **`list_contacts`**, **`get_contact`**, **`search_contacts`**: Explore and fetch contact records.
 - **`list_threads`**: List related threads, optionally including meetings, for deeper context.
+- **`list_events`**: List upcoming calendar events Quill is aware of.
 
 All tools ultimately return **structured JSON** to Claude; the extension adapts that into MCP `text` content so Claude can reason over it.
 
 ## Example use cases
 
 - **1. Summarize a recent meeting and extract action items**
-  - Claude calls `list_meetings` or `search_meetings` to find the relevant meeting by title, participants, or keywords.
+  - Claude calls `search_meetings` to find the relevant meeting by title, participants, or keywords.
   - It then uses `get_minutes` (and, if needed, `get_transcript`) to pull the detailed content.
   - From there, Claude can draft a summary, extract decisions, and propose next‑step action items entirely on‑device.
 
 - **2. Prepare for an upcoming call with a specific contact**
   - Claude looks up the person using `search_contacts` or `get_contact` by name or email.
-  - Using that contact id, it queries `search_meetings` / `list_meetings` and `list_notes` to gather past interactions, notes, and talking points.
+  - Using that contact id, it queries `search_meetings` and `list_notes` to gather past interactions, notes, and talking points.
   - With this context, Claude can generate a tailored pre‑read, agenda, or email prep for the call.
 
 - **3. Review all discussions around a topic across meetings and threads**
