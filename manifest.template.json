@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.2",
-  "name": "Quill",
+  "name": "quill-claude-extension",
   "display_name": "Quill",
   "version": "0.0.0",
   "description": "Private, on-device access to your Quill meetings, minutes, transcripts, notes, contacts, and threads.",

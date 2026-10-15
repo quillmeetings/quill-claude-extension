@@ -34,11 +34,17 @@ const outputPath = path.join(ROOT_DIR, 'manifest.json')
 const packageJson = readJson(packageJsonPath)
 const template = readJson(templatePath)
 
-const extensionName = mode === 'dev' ? 'Quill (Dev)' : 'Quill'
+// `name` is the extension's install identity: Claude Desktop derives the id
+// from it (`local.mcpb.quillmeetings.<name>`). Production keeps the original
+// `quill-claude-extension` name so a new version upgrades installed copies in
+// place instead of adding a second "Quill" extension next to them. Dev gets its
+// own name so both can be installed at once. `display_name` is what users see.
+const extensionName = mode === 'dev' ? 'quill-claude-extension-dev' : 'quill-claude-extension'
+const displayName = mode === 'dev' ? 'Quill (Dev)' : 'Quill'
 const manifest = {
   ...template,
   name: extensionName,
-  display_name: extensionName,
+  display_name: displayName,
   version: packageJson.version,
 }
 
