@@ -22,7 +22,7 @@ const server = new Server(
 
 const TIMEOUT_MS = 10000
 const isWindows = os.platform() === 'win32'
-const socketName = ENV === 'development' ? 'quill_mcp_dev' : 'quill_mcp'
+const socketName = ENV === 'development' ? 'quill_mcp_development' : 'quill_mcp'
 const SOCKET_PATH = isWindows ? `\\\\.\\pipe\\${socketName}` : `/tmp/${socketName}.sock`
 
 const connectionManager = new ConnectionManager({
