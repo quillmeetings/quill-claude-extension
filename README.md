@@ -19,13 +19,14 @@ This extension uses stdio transport.
 
 - **Claude Desktop ↔ MCP server (this project)**  
   - Claude Desktop launches this extension using the `manifest.json` definition.  
-  - The extension runs `node src/index.js` and speaks the MCP protocol over **stdio** using `@modelcontextprotocol/sdk`.  
+  - The extension runs `node dist/index.js` (bundled from `src/index.ts`) and speaks the MCP protocol over **stdio** using `@modelcontextprotocol/sdk`.  
   - The MCP server only exposes **tools**; it does not persist any state itself.
 
 - **MCP server ↔ Quill Desktop (Electron app)**  
-  - `src/index.js` opens a **local WebSocket connection** to the Quill desktop app:
+  - `src/lib/connectionManager.ts` opens a **local WebSocket connection** to the Quill desktop app:
     - macOS: Unix domain socket at `/tmp/quill_mcp.sock`
     - Windows: Named pipe at `\\\\.\\pipe\\quill_mcp`
+    - Development builds use `quill_mcp_development` in place of `quill_mcp`, matching the dev build of the app.
   - All actual data access (meetings, minutes, transcripts, contacts, threads, etc.) happens inside Quill; this extension only forwards requests and responses.
   - Communication never leaves the device: both the stdio channel and the socket/pipe are local only.
 
@@ -52,8 +53,8 @@ This extension uses stdio transport.
   - Any long‑lived storage of user data remains within the Quill desktop application itself (outside the scope of this extension).
 
 - **Logging**
-  - The extension logs minimal diagnostic information to stderr (e.g., connection lifecycle events, tool invocation errors).
-  - Logs may include tool names and basic argument metadata (such as IDs or short queries) for debugging, but the implementation avoids logging full meeting transcripts or note bodies.
+  - The extension logs minimal diagnostic information (connection lifecycle events, tool names and call durations, error messages) to stderr and to a local file: `~/Library/Application Support/Quill/logs/claude-extension.log` on macOS, `%APPDATA%\Quill\logs\claude-extension.log` on Windows (`Quill-development` for dev builds).
+  - Tool arguments and results (meeting transcripts, note bodies, etc.) are not logged.
   - There are no analytics, tracking, or remote log upload mechanisms in this package.
 
 ## Tooling and build workflow
@@ -96,16 +97,10 @@ Use this when testing the full Claude extension flow locally and you need to ref
 
 ### Recommended: use the helper script
 
-From repo root:
+The helper script lives in the `quill` monorepo, where this repo is checked out as the `mcp/extension` submodule. From the monorepo root:
 
 ```bash
 bash scripts/rebuild-claude-extension-local.sh --mode prod
-```
-
-Or from `mcp/extension`:
-
-```bash
-npm run rebuild:local -- --mode prod
 ```
 
 Useful flags:
@@ -113,7 +108,7 @@ Useful flags:
 - `--mode <prod|dev>` (default `prod`)
 - `--bump <patch|minor|major|x.y.z>` (optional pre-build version bump)
 - `--skip-install` (skip `npm ci` / `npm install`)
-- `--skip-bridge` (skip `npm run build:mcpBridge` in `app`)
+- `--skip-bridge` (skip `npm run build:mcpBridge` in `apps/desktop`)
 
 Examples:
 
@@ -127,19 +122,19 @@ bash scripts/rebuild-claude-extension-local.sh --mode prod --skip-install
 
 ### Manual steps (equivalent)
 
+Each step starts from the `quill` monorepo root.
+
 ### 1) Use correct Node version
 
 ```bash
-cd /Users/achraf/code/quill/dev
 . ~/.nvm/nvm.sh
-cd app && nvm use
-cd ../mcp/extension && nvm use || true
+nvm use "$(cat apps/desktop/.nvmrc)"
 ```
 
 ### 2) Build extension package
 
 ```bash
-cd /Users/achraf/code/quill/dev/mcp/extension
+cd mcp/extension
 npm ci
 ```
 
@@ -147,7 +142,7 @@ Optional (if you want a new version):
 
 ```bash
 npm run version:bump -- patch
-# or: -- minor / -- major / -- 0.x.y
+# or: -- minor / -- major / -- x.y.z
 ```
 
 Build artifact:
@@ -160,32 +155,33 @@ npm run build:prod
 ### 3) Copy extension artifact to app assets
 
 ```bash
-cp "/Users/achraf/code/quill/dev/mcp/extension/extension.mcpb" \
-   "/Users/achraf/code/quill/dev/app/assets/claude/quill.mcpb"
+cp mcp/extension/extension.mcpb apps/desktop/assets/claude/quill.mcpb
 ```
 
 ### 4) Regenerate app extension version module
 
 ```bash
-cd /Users/achraf/code/quill/dev/app
+cd apps/desktop
 node scripts/generate-claude-extension-version.mjs
 ```
 
 ### 5) Rebuild MCP stdio bridge
 
 ```bash
-cd /Users/achraf/code/quill/dev/app
+cd apps/desktop
 npm run build:mcpBridge
 ```
 
 ### One-shot command (prod)
 
+From the monorepo root:
+
 ```bash
-cd /Users/achraf/code/quill/dev && . ~/.nvm/nvm.sh && \
-cd app && nvm use && cd ../mcp/extension && npm ci && \
-npm run build:prod && \
-cp extension.mcpb ../../app/assets/claude/quill.mcpb && \
-cd ../../app && \
+. ~/.nvm/nvm.sh && \
+nvm use "$(cat apps/desktop/.nvmrc)" && \
+(cd mcp/extension && npm ci && npm run build:prod) && \
+cp mcp/extension/extension.mcpb apps/desktop/assets/claude/quill.mcpb && \
+cd apps/desktop && \
 node scripts/generate-claude-extension-version.mjs && \
 npm run build:mcpBridge
 ```
@@ -233,13 +229,13 @@ Where `<target>` can be:
 Examples:
 
 ```bash
-# 0.1.4 -> 0.1.5
+# 1.0.0 -> 1.0.1
 npm run version:bump
 
-# 0.1.4 -> 0.2.0
+# 1.0.0 -> 1.1.0
 npm run version:bump -- minor
 
-# 0.1.4 -> 1.0.0
+# 1.0.0 -> 2.0.0
 npm run version:bump -- major
 
 # force exact version
@@ -260,29 +256,29 @@ See `manifest.json`. Important fields:
 
 Tool metadata is declared in `manifest.json` (names and human‑readable descriptions), while the **actual schemas** and implementations live in the Quill desktop app and are discovered dynamically at runtime via the `list_tools` bridge call.
 
-The current tool surface includes (non‑exhaustive):
+The current tool surface includes (non‑exhaustive; see `manifest.json` for the full list):
 
-- **`list_meetings`**: Return a list of meetings.
+- **`search_meetings`**: Search or list meetings by free‑text query and/or filter by participants, tags, or date. There is no separate list‑meetings tool — call it with no query to list.
 - **`get_meeting`**: Get a single meeting by id.
-- **`search_meetings`**: Search meetings by free‑text query and/or filter by contacts.
-- **`get_minutes`**: Return minutes or a formatted summary for a meeting.
-- **`get_transcript`**: Return the full formatted transcript for a meeting (can be long; prefer `get_minutes` first).
+- **`get_minutes`** / **`search_minutes`**: Read or full‑text‑search the AI‑generated minutes for a meeting.
+- **`get_transcript`**: Return the full transcript with speakers and timestamps for a meeting (can be long; prefer `get_minutes` first).
 - **`list_notes`** / **`get_note`**: Work with structured notes attached to a meeting.
 - **`list_contacts`**, **`get_contact`**, **`search_contacts`**: Explore and fetch contact records.
 - **`list_threads`**: List related threads, optionally including meetings, for deeper context.
+- **`list_events`**: List upcoming calendar events Quill is aware of.
 
 All tools ultimately return **structured JSON** to Claude; the extension adapts that into MCP `text` content so Claude can reason over it.
 
 ## Example use cases
 
 - **1. Summarize a recent meeting and extract action items**
-  - Claude calls `list_meetings` or `search_meetings` to find the relevant meeting by title, participants, or keywords.
+  - Claude calls `search_meetings` to find the relevant meeting by title, participants, or keywords.
   - It then uses `get_minutes` (and, if needed, `get_transcript`) to pull the detailed content.
   - From there, Claude can draft a summary, extract decisions, and propose next‑step action items entirely on‑device.
 
 - **2. Prepare for an upcoming call with a specific contact**
   - Claude looks up the person using `search_contacts` or `get_contact` by name or email.
-  - Using that contact id, it queries `search_meetings` / `list_meetings` and `list_notes` to gather past interactions, notes, and talking points.
+  - Using that contact id, it queries `search_meetings` and `list_notes` to gather past interactions, notes, and talking points.
   - With this context, Claude can generate a tailored pre‑read, agenda, or email prep for the call.
 
 - **3. Review all discussions around a topic across meetings and threads**
