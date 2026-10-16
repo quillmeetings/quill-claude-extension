@@ -96,16 +96,10 @@ Use this when testing the full Claude extension flow locally and you need to ref
 
 ### Recommended: use the helper script
 
-From repo root:
+The helper script lives in the `quill` monorepo, where this repo is checked out as the `mcp/extension` submodule. From the monorepo root:
 
 ```bash
 bash scripts/rebuild-claude-extension-local.sh --mode prod
-```
-
-Or from `mcp/extension`:
-
-```bash
-npm run rebuild:local -- --mode prod
 ```
 
 Useful flags:
