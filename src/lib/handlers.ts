@@ -4,7 +4,7 @@ import type { ProtocolClient } from './protocolClient'
 import { classifyError, formatErrorForUser } from './error'
 import { log } from './logger'
 
-export type ToolContent = { type: 'text'; text: string }
+export type ToolContent = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }
 
 export type ToolResult = { content: ToolContent[]; isError?: boolean }
 
@@ -41,9 +41,34 @@ export async function handleListTools(context: HandlerContext): Promise<{ tools:
   }
 }
 
-function convertToToolResult(data: unknown): ToolResult {
+function isToolContent(part: unknown): part is ToolContent {
+  if (typeof part !== 'object' || part === null) {
+    return false
+  }
+  const p = part as { type?: unknown; text?: unknown; data?: unknown; mimeType?: unknown }
+  if (p.type === 'text') {
+    return typeof p.text === 'string'
+  }
+  if (p.type === 'image') {
+    return typeof p.data === 'string' && typeof p.mimeType === 'string'
+  }
+  return false
+}
+
+/**
+ * Quill answers a direct tool call with the handler's raw result. Its `content` is
+ * either a plain string (most tools) or an array of MCP-shaped text/image parts
+ * (e.g. get_screenshot), which must pass through so Claude gets the image itself.
+ */
+export function convertToToolResult(data: unknown): ToolResult {
   if (data && typeof data === 'object' && 'content' in data) {
-    return { content: [{ type: 'text', text: String((data as { content: unknown }).content) }] }
+    const { content } = data as { content: unknown }
+    if (typeof content === 'string') {
+      return { content: [{ type: 'text', text: content }] }
+    }
+    if (Array.isArray(content) && content.every(isToolContent)) {
+      return { content }
+    }
   }
 
   return { content: [{ type: 'text', text: JSON.stringify(data, null, 2) }] }
